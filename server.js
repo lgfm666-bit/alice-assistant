@@ -91,8 +91,10 @@ app.post('/alice', async (req, res) => {
   }
 });
 
-app.listen(3000, '127.0.0.1', () => {
-  console.log('Alice AI с искусственным интеллектом запущен!');
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('Alice AI запущен!');
   console.log('Модель:', MODEL);
-  console.log('Адрес: http://127.0.0.1:3000');
+  console.log('Порт:', PORT);
 });
