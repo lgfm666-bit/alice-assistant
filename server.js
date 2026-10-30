@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 
 const express = require('express');
@@ -7,12 +8,12 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
+  timeout: 3000,
+  maxRetries: 0
 });
 
 const MODEL = process.env.OPENAI_MODEL || 'gpt-6-luna';
-
-const sessions = new Map();
 
 app.get('/health', (req, res) => {
   res.json({
@@ -25,28 +26,31 @@ app.get('/health', (req, res) => {
 
 app.post('/alice', async (req, res) => {
   try {
-    const command = req.body?.request?.command?.trim();
+    const request = req.body?.request || {};
+    const session = req.body?.session || {};
+
+    // Яндекс передаёт произнесённую фразу в original_utterance.
+    // command оставляем для ручных тестов.
+    const command = (
+      request.original_utterance ||
+      request.command ||
+      ''
+    ).trim();
 
     if (!command) {
       return res.json({
         response: {
-          text: 'Привет! Чем могу помочь?',
+          text: 'Привет! Я Alice AI. Чем могу помочь?',
           end_session: false
         },
         version: '1.0'
       });
     }
 
-    const sessionId = req.body?.session?.session_id;
-    const isNewSession = req.body?.session?.new === true;
-
-    if (isNewSession && sessionId) {
-      sessions.delete(sessionId);
-    }
-
-    const previousId = sessionId
-      ? sessions.get(sessionId)
-      : undefined;
+    // Получаем историю предыдущего ответа из состояния Яндекса.
+    const previousId = session.new
+      ? undefined
+      : req.body?.state?.session?.openai_previous_response_id;
 
     const result = await client.responses.create({
       model: MODEL,
@@ -54,36 +58,34 @@ app.post('/alice', async (req, res) => {
         'Ты Alice AI, персональный голосовой помощник.',
         'Отвечай на русском языке.',
         'Будь дружелюбным, полезным и кратким.',
+        'Учитывай, что ответы будут озвучиваться голосом.',
+        'Не используй длинные списки и сложное форматирование.',
         'Не утверждай, что выполнил действие, если не выполнил его.'
       ].join(' '),
       input: command,
       ...(previousId ? { previous_response_id: previousId } : {})
     });
 
-    if (sessionId) {
-      sessions.set(sessionId, result.id);
-    }
-
     const answer = result.output_text ||
       'Извини, сейчас не получилось сформировать ответ.';
 
-    res.json({
+    return res.json({
       response: {
         text: answer,
         end_session: false
       },
-      ...(req.body?.session
-        ? { session: req.body.session }
-        : {}),
+      session_state: {
+        openai_previous_response_id: result.id
+      },
       version: '1.0'
     });
 
   } catch (error) {
     console.error('Ошибка Alice AI:', error.message);
 
-    res.status(502).json({
+    return res.json({
       response: {
-        text: 'Извини, сейчас мой искусственный интеллект временно недоступен.',
+        text: 'Извини, сейчас мой искусственный интеллект временно недоступен. Попробуй повторить вопрос.',
         end_session: false
       },
       version: '1.0'
