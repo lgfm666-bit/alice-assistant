@@ -7,19 +7,24 @@ const OpenAI = require('openai');
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
+const FOLDER_ID = 'b1gd3iun728nb6ns7i9m';
+
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.YANDEX_API_KEY,
+  baseURL: 'https://ai.api.cloud.yandex.net/v1',
+  project: FOLDER_ID,
   timeout: 3800,
   maxRetries: 0
 });
 
-const MODEL = process.env.OPENAI_MODEL || 'gpt-6-luna';
+const MODEL = process.env.YANDEX_MODEL ||
+  `gpt://${FOLDER_ID}/aliceai-llm-flash`;
 
 app.get('/health', (req, res) => {
   res.json({
     status: 'online',
     assistant: 'Alice AI',
-    ai: 'connected',
+    ai: 'Yandex AI Studio',
     model: MODEL
   });
 });
