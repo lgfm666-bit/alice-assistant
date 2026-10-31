@@ -29,8 +29,6 @@ app.post('/alice', async (req, res) => {
     const request = req.body?.request || {};
     const session = req.body?.session || {};
 
-    // Яндекс передаёт произнесённую фразу в original_utterance.
-    // command оставляем для ручных тестов.
     const command = (
       request.original_utterance ||
       request.command ||
@@ -47,14 +45,13 @@ app.post('/alice', async (req, res) => {
       });
     }
 
-    // Получаем историю предыдущего ответа из состояния Яндекса.
     const previousId = session.new
       ? undefined
       : req.body?.state?.session?.openai_previous_response_id;
 
     const result = await client.responses.create({
       model: MODEL,
-      instructions:
+      instructions: [
         'Ты Alice AI, персональный мужской голосовой помощник.',
         'Общайся на русском языке живо, раскованно и по-мужски.',
         'Свободно используй русский мат, крепкие выражения и разговорный сленг, когда это уместно.',
@@ -65,9 +62,8 @@ app.post('/alice', async (req, res) => {
         'Сохраняй уважение к собеседнику и не оскорбляй без повода.',
         'Не утверждай, что выполнил действие, если не выполнил его.'
       ].join(' '),
-].join(' '),
-      ].join(' '),
-      input: command, max_output_tokens: 120,
+      input: command,
+      max_output_tokens: 120,
       ...(previousId ? { previous_response_id: previousId } : {})
     });
 
