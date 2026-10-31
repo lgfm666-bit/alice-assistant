@@ -12,7 +12,9 @@ const FOLDER_ID = 'b1gd3iun728nb6ns7i9m';
 const client = new OpenAI({
   apiKey: process.env.YANDEX_API_KEY,
   baseURL: 'https://ai.api.cloud.yandex.net/v1',
-  project: FOLDER_ID,
+  defaultHeaders: {
+    'x-folder-id': FOLDER_ID
+  },
   timeout: 3800,
   maxRetries: 0
 });
