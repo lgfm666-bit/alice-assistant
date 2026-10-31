@@ -9,7 +9,7 @@ app.use(express.json({ limit: '1mb' }));
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: 3000,
+  timeout: 3800,
   maxRetries: 0
 });
 
@@ -62,7 +62,7 @@ app.post('/alice', async (req, res) => {
         'Не используй длинные списки и сложное форматирование.',
         'Не утверждай, что выполнил действие, если не выполнил его.'
       ].join(' '),
-      input: command,
+      input: command, max_output_tokens: 120,
       ...(previousId ? { previous_response_id: previousId } : {})
     });
 
