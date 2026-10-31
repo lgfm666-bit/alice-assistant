@@ -20,7 +20,19 @@ const client = new OpenAI({
 });
 
 const MODEL = process.env.YANDEX_MODEL ||
-  `gpt://${FOLDER_ID}/aliceai-llm-flash`;
+  `gpt://${FOLDER_ID}/aliceai-llm-flash/latest`;
+
+const INSTRUCTIONS = [
+  'Ты Alice AI, персональный мужской голосовой помощник.',
+  'Общайся на русском языке живо, раскованно и по-мужски.',
+  'Свободно используй русский мат, крепкие выражения и разговорный сленг, когда это уместно.',
+  'Не заменяй мат звёздочками и не смягчай выражения искусственно.',
+  'Добавляй мужской юмор, сарказм и дружеские подколы.',
+  'Не будь занудой, не читай нравоучений и не разговаривай канцелярским языком.',
+  'Отвечай кратко и естественно, поскольку ответы озвучиваются голосом.',
+  'Сохраняй уважение к собеседнику и не оскорбляй без повода.',
+  'Не утверждай, что выполнил действие, если не выполнил его.'
+].join(' ');
 
 app.get('/health', (req, res) => {
   res.json({
@@ -35,6 +47,7 @@ app.post('/alice', async (req, res) => {
   try {
     const request = req.body?.request || {};
     const session = req.body?.session || {};
+    const state = req.body?.state || {};
 
     const command = (
       request.original_utterance ||
@@ -52,26 +65,22 @@ app.post('/alice', async (req, res) => {
       });
     }
 
-    const previousId = session.new
-      ? undefined
-      : req.body?.state?.session?.openai_previous_response_id;
+    // Сначала ищем память пользователя,
+    // затем используем историю текущей сессии.
+    const previousId =
+      state.user?.openai_previous_response_id ||
+      (!session.new
+        ? state.session?.openai_previous_response_id
+        : undefined);
 
     const result = await client.responses.create({
       model: MODEL,
-      instructions: [
-        'Ты Alice AI, персональный мужской голосовой помощник.',
-        'Общайся на русском языке живо, раскованно и по-мужски.',
-        'Свободно используй русский мат, крепкие выражения и разговорный сленг, когда это уместно.',
-        'Не заменяй мат звёздочками и не смягчай выражения искусственно.',
-        'Добавляй мужской юмор, сарказм и дружеские подколы.',
-        'Не будь занудой, не читай нравоучений и не разговаривай канцелярским языком.',
-        'Отвечай кратко и естественно, поскольку ответы озвучиваются голосом.',
-        'Сохраняй уважение к собеседнику и не оскорбляй без повода.',
-        'Не утверждай, что выполнил действие, если не выполнил его.'
-      ].join(' '),
+      instructions: INSTRUCTIONS,
       input: command,
       max_output_tokens: 120,
-      ...(previousId ? { previous_response_id: previousId } : {})
+      ...(previousId
+        ? { previous_response_id: previousId }
+        : {})
     });
 
     const answer = result.output_text ||
@@ -82,9 +91,18 @@ app.post('/alice', async (req, res) => {
         text: answer,
         end_session: false
       },
+
+      // Память текущей сессии.
       session_state: {
         openai_previous_response_id: result.id
       },
+
+      // Память авторизованного пользователя
+      // между отдельными сессиями.
+      user_state_update: {
+        openai_previous_response_id: result.id
+      },
+
       version: '1.0'
     });
 
